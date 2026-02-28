@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Neon Guess Game</title>
+
+<style>
+:root {
+    --bg-gradient: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    --card-bg: rgba(0,0,0,0.4);
+    --neon: #bb00ff;
+    --text: white;
+}
+
+.light-mode {
+    --bg-gradient: linear-gradient(135deg, #f3e8ff, #e9d5ff);
+    --card-bg: rgba(255,255,255,0.8);
+    --neon: #7b00ff;
+    --text: #2d004d;
+}
+
+body {
+    font-family: Arial;
+    background: var(--bg-gradient);
+    color: var(--text);
+    text-align: center;
+    margin: 0;
+    transition: 0.4s;
+}
+
+.game-container {
+    margin-top: 50px;
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 15px;
+    width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+    box-shadow: 0 0 25px var(--neon);
+    transition: 0.4s;
+}
+
+h1 {
+    color: var(--neon);
+    text-shadow: 0 0 10px var(--neon);
+}
+
+select, input {
+    padding: 10px;
+    margin: 8px;
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+}
+
+button {
+    padding: 10px 18px;
+    margin: 8px;
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+    cursor: pointer;
+    background: var(--neon);
+    color: white;
+    box-shadow: 0 0 10px var(--neon);
+    transition: 0.3s;
+}
+
+button:hover {
+    transform: scale(1.1);
+}
+
+#leaderboard {
+    margin-top: 20px;
+    text-align: left;
+}
+</style>
+</head>
+
+<body>
+
+<div class="game-container">
+    <h1>⚡ Neon Guess Game ⚡</h1>
+
+    <input type="text" id="playerName" placeholder="Enter your name">
+
+    <br>
+
+    <select id="difficulty">
+        <option value="easy">Easy (1-10)</option>
+        <option value="medium">Medium (1-50)</option>
+        <option value="hard">Hard (1-100)</option>
+    </select>
+
+    <select id="mode">
+        <option value="normal">Normal Mode</option>
+        <option value="timer">Timer Mode</option>
+    </select>
+
+    <br>
+
+    <button onclick="startGame()">Start Game</button>
+    <button onclick="toggleTheme()">🌙 / ☀ Toggle Mode</button>
+
+    <div id="gameArea" style="display:none;">
+        <p id="attempts"></p>
+        <p id="timer"></p>
+
+        <input type="number" id="guessInput" placeholder="Enter guess">
+        <br>
+        <button onclick="checkGuess()">Guess</button>
+
+        <p id="message"></p>
+        <p id="score"></p>
+
+        <button onclick="startGame()">Play Again</button>
+    </div>
+
+    <div id="leaderboard">
+        <h3>🏆 Leaderboard (Top 5)</h3>
+        <ol id="scoresList"></ol>
+    </div>
+</div>
+
+<!-- SOUND -->
+<audio id="clickSound" src="click.mp3"></audio>
+<audio id="correctSound" src="correct.mp3"></audio>
+<audio id="wrongSound" src="wrong.mp3"></audio>
+<audio id="gameOverSound" src="gameover.mp3"></audio>
+
+<script>
+let secretNumber;
+let attempts = 0;
+let maxAttempts;
+let maxRange;
+let timeLeft;
+let timerInterval;
+
+function startGame() {
+    document.getElementById("clickSound").play();
+
+    let name = document.getElementById("playerName").value.trim();
+    if (!name) {
+        alert("Please enter your name!");
+        return;
+    }
+
+    let difficulty = document.getElementById("difficulty").value;
+    let mode = document.getElementById("mode").value;
+
+    if (difficulty === "easy") {
+        maxRange = 10;
+        maxAttempts = 5;
+        timeLeft = 20;
+    } else if (difficulty === "medium") {
+        maxRange = 50;
+        maxAttempts = 7;
+        timeLeft = 30;
+    } else {
+        maxRange = 100;
+        maxAttempts = 10;
+        timeLeft = 40;
+    }
+
+    secretNumber = Math.floor(Math.random() * maxRange) + 1;
+    attempts = 0;
+
+    document.getElementById("gameArea").style.display = "block";
+    document.getElementById("attempts").innerText = "Attempts Left: " + maxAttempts;
+    document.getElementById("message").innerText = "";
+    document.getElementById("score").innerText = "";
+    document.getElementById("guessInput").disabled = false;
+    document.getElementById("guessInput").value = "";
+
+    if (mode === "timer") {
+        document.getElementById("timer").innerText = "Time Left: " + timeLeft + "s";
+        startTimer();
+    } else {
+        document.getElementById("timer").innerText = "";
+        clearInterval(timerInterval);
+    }
+}
+
+function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timer").innerText = "Time Left: " + timeLeft + "s";
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            endGame(false);
+        }
+    }, 1000);
+}
+
+function checkGuess() {
+    let guess = Number(document.getElementById("guessInput").value);
+    if (!guess) return;
+
+    attempts++;
+
+    if (guess === secretNumber) {
+        document.getElementById("correctSound").play();
+        let score = (maxAttempts - attempts + 1) * 10 + (timeLeft || 0);
+        document.getElementById("message").innerText = "🎉 Correct!";
+        document.getElementById("score").innerText = "Score: " + score;
+        saveScore(score);
+        endGame(true);
+    } else {
+        document.getElementById("wrongSound").play();
+        document.getElementById("message").innerText =
+            guess < secretNumber ? "Too Low!" : "Too High!";
+    }
+
+    document.getElementById("attempts").innerText =
+        "Attempts Left: " + (maxAttempts - attempts);
+
+    if (attempts >= maxAttempts) {
+        endGame(false);
+    }
+}
+
+function endGame(win) {
+    clearInterval(timerInterval);
+    document.getElementById("guessInput").disabled = true;
+
+    if (!win) {
+        document.getElementById("gameOverSound").play();
+        document.getElementById("message").innerText =
+            "💀 Game Over! Number was " + secretNumber;
+        document.getElementById("score").innerText = "Score: 0";
+    }
+}
+
+function saveScore(score) {
+    let name = document.getElementById("playerName").value;
+    let scores = JSON.parse(localStorage.getItem("scores")) || [];
+
+    scores.push({name: name, score: score});
+    scores.sort((a,b)=>b.score-a.score);
+    scores = scores.slice(0,5);
+
+    localStorage.setItem("scores", JSON.stringify(scores));
+    displayScores();
+}
+
+function displayScores() {
+    let scores = JSON.parse(localStorage.getItem("scores")) || [];
+    let list = document.getElementById("scoresList");
+    list.innerHTML = "";
+    scores.forEach(s => {
+        let li = document.createElement("li");
+        li.innerText = s.name + " - " + s.score;
+        list.appendChild(li);
+    });
+}
+
+function toggleTheme() {
+    document.body.classList.toggle("light-mode");
+}
+
+displayScores();
+</script>
+
+</body>
+</html>
